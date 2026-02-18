@@ -26,6 +26,16 @@ module ISO3166
       super if codes.include?(country_code)
     end
 
+    def cached_instance(country_data)
+      @_country_instance_cache ||= {}
+      alpha2 = country_data['alpha2']
+      @_country_instance_cache[alpha2] ||= new(country_data)
+    end
+
+    def reset_country_cache
+      @_country_instance_cache = {}
+    end
+
     # :reek:UtilityFunction
     def codes
       ISO3166::Data.codes

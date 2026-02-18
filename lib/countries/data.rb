@@ -55,6 +55,7 @@ module ISO3166
           @subdivisions = {}
           @registered_data = {}
           ISO3166.configuration.loaded_locales = []
+          ISO3166::Country.reset_country_cache
         end
       end
 
