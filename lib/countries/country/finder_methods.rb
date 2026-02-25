@@ -4,6 +4,7 @@ module ISO3166
   module CountryFinderMethods
     FIND_BY_REGEX = /^find_(all_)?(country_|countries_)?by_(.+)/
     SEARCH_TERM_FILTER_REGEX = /\(|\)|\[\]|,/
+    ANY_NAME_ATTRIBUTES = %w[iso_long_name iso_short_name unofficial_names translated_names].freeze
 
     # :reek:FeatureEnvy
     def search(query)
@@ -23,10 +24,15 @@ module ISO3166
       attributes, lookup_value = parse_attributes(attribute, val)
 
       ISO3166::Data.cache.select do |_k, value|
-        country = Country.new(value)
+        country = Country.cached_instance(value)
         attributes.any? do |attr|
-          Array(country.send(attr)).any? do |attr_value|
-            lookup_value === cached(attr_value) { parse_value(attr_value) }
+          attr_value = value[attr] || country.send(attr)
+          if attr_value.is_a?(Array)
+            attr_value.any? do |v|
+              v && lookup_value === cached(v) { parse_value(v) }
+            end
+          else
+            attr_value && lookup_value === cached(attr_value) { parse_value(attr_value) }
           end
         end
       end
@@ -66,8 +72,7 @@ module ISO3166
       raise "Invalid attribute name '#{attribute}'" unless searchable_attribute?(attribute.to_sym)
 
       attribute = attribute.to_s
-      attributes = Array(attribute)
-      attributes = %w[iso_long_name iso_short_name unofficial_names translated_names] if attribute == 'any_name'
+      attributes = attribute == 'any_name' ? ANY_NAME_ATTRIBUTES : [attribute]
 
       [attributes, parse_value(val)]
     end
@@ -84,7 +89,7 @@ module ISO3166
     end
 
     def searchable_attributes
-      instance_methods - UNSEARCHABLE_METHODS + %i[any_name]
+      @_searchable_attributes ||= (instance_methods - UNSEARCHABLE_METHODS + %i[any_name]).freeze
     end
   end
 end
